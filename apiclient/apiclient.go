@@ -96,7 +96,6 @@ func (client *Client) GetCurrentStatus() NowPlaying {
 		}
 		stat.Artwork = client.CachedArtwork
 	} else {
-		fmt.Println("CurrentArtwork not a string: ", reply["CurrentArtwork"])
 		stat.ArtworkUri = ""
 		stat.Artwork = nil
 	}
