@@ -35,6 +35,7 @@ type MainWindow struct {
 	PrevButton        *gtk.Button
 	PlayPauseButton   *gtk.Button
 	NextButton        *gtk.Button
+	ScanningIndicator *gtk.Image
 	PauseIcon         *gtk.Image
 	PlayIcon          *gtk.Image
 	PrevIcon          *gtk.Image
@@ -42,6 +43,17 @@ type MainWindow struct {
 	HideMousePointer  bool
 	PlayPauseAction   func()
 	CurrentArtworkUri string
+}
+
+func loadLocalImageNoMode(iconName string, iconSize int) *gtk.Image {
+	leafName := iconName
+	if iconSize != 0 {
+		leafName += "_" + strconv.Itoa(iconSize)
+	}
+	leafName += ".png"
+	// TODO: Absolute path?
+	filename := "icons/" + leafName
+	return gtk.NewImageFromFile(filename)
 }
 
 func loadLocalImage(iconName string, darkMode bool, iconSize int) *gtk.Image {
@@ -92,7 +104,7 @@ func mkLabel(justification gtk.Justification, large bool, darkMode bool) *gtk.La
 	return label
 }
 
-func layoutFixed(window *MainWindow) {
+func (window *MainWindow) layoutFixed() {
 	fixedContainer := gtk.NewFixed()
 	var xPadding, y0Padding, labelH float64
 	xPadding = 10
@@ -123,12 +135,12 @@ func layoutFixed(window *MainWindow) {
 	fixedContainer.Put(window.PlayPauseButton, (screenWidth-imgButtonW)/2, buttonY0)
 	fixedContainer.Put(window.NextButton, screenWidth-buttonXPadding-imgButtonW, buttonY0)
 
-	// TODO fixedContainer.Put(window.scanning_indicator_icon, SCREEN_WIDTH-20, 4)
+	fixedContainer.Put(window.ScanningIndicator, screenWidth-20, 4)
 
 	window.Window.SetChild(fixedContainer)
 }
 
-func layoutDynamic(window *MainWindow) {
+func (window *MainWindow) layoutDynamic() {
 	margin := 20
 
 	window.Artwork.SetMarginStart(margin)
@@ -172,9 +184,17 @@ func layoutDynamic(window *MainWindow) {
 	childContainer.Append(bottomRowContainer)
 	childContainer.SetHomogeneous(false)
 
+	overlay := gtk.NewOverlay()
+	window.ScanningIndicator.SetHAlign(gtk.AlignEnd)
+	window.ScanningIndicator.SetVAlign(gtk.AlignStart)
+	window.ScanningIndicator.SetMarginEnd(margin)
+	window.ScanningIndicator.SetMarginTop(margin)
+	overlay.AddOverlay(window.ScanningIndicator)
+	overlay.SetChild(childContainer)
+
 	// TODO: Close button
 
-	window.Window.SetChild(childContainer)
+	window.Window.SetChild(overlay)
 }
 
 func NewMainWindow(app *gtk.Application, apiClient *apiclient.Client, darkMode bool, fullScreen bool, fixedLayout bool) *MainWindow {
@@ -240,14 +260,14 @@ func NewMainWindow(app *gtk.Application, apiClient *apiclient.Client, darkMode b
 		}
 	}
 
-	// TODO: Scanning indicator
+	rtn.ScanningIndicator = loadLocalImageNoMode("circle", 16)
 
 	if fixedLayout {
 		rtn.NoTrackLabel = mkLabel(gtk.JustifyCenter, false, darkMode)
-		layoutFixed(rtn)
+		rtn.layoutFixed()
 	} else {
 		rtn.NoTrackLabel = rtn.ArtistLabel
-		layoutDynamic(rtn)
+		rtn.layoutDynamic()
 	}
 
 	window.ConnectRealize(rtn.OnRealized)
@@ -299,7 +319,7 @@ func (window *MainWindow) ShowConnectionError() {
 	window.Artwork.Hide()
 	window.NoTrackLabel.Show()
 	window.NoTrackLabel.SetLabel("Connection error")
-	// window.scanning_indicator_icon.hide()
+	window.ScanningIndicator.Hide()
 	window.PlayIcon.SetVisible(true)
 	window.PauseIcon.SetVisible(false)
 	window.PrevButton.SetSensitive(false)
@@ -315,6 +335,7 @@ func (window *MainWindow) ShowNowPlaying(nowPlaying apiclient.NowPlaying) {
 		window.ShowNowPlayingImage(nowPlaying)
 		window.ShowNowPlayingPlayPauseIcon(nowPlaying)
 		window.ShowNowPlayingPrevNext(nowPlaying)
+		window.ScanningIndicator.SetVisible(nowPlaying.Scanning)
 	}
 }
 

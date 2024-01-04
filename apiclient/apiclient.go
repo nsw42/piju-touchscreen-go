@@ -100,6 +100,13 @@ func (client *Client) GetCurrentStatus() NowPlaying {
 		stat.Artwork = nil
 	}
 
+	workerStatusStr, ok := reply["WorkerStatus"].(string)
+	if ok {
+		stat.Scanning = (strings.ToLower(workerStatusStr) != "idle")
+	} else {
+		stat.Scanning = false
+	}
+
 	stat.Status = playerStatus
 	return stat
 }

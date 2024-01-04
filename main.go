@@ -98,6 +98,7 @@ func getNowPlaying() {
 		status.StreamName,
 		status.TrackNumber, "/", status.AlbumTracks,
 		status.Artwork[:min(len(status.Artwork), 20)],
+		"Scanning:", status.Scanning,
 	)
 
 	glib.IdleAdd(func() { mainWindow.ShowNowPlaying(status) })

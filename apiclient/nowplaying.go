@@ -10,7 +10,7 @@ type NowPlaying struct {
 	AlbumTracks int
 	ArtworkUri  string
 	Artwork     []byte
+	Scanning    bool
 
 	// TODO Volume   int
-	// TODO Scanning string
 }
