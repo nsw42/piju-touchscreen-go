@@ -12,22 +12,25 @@ import (
 
 	"nsw42/piju-touchscreen-go/apiclient"
 	"nsw42/piju-touchscreen-go/mainwindow"
+	"nsw42/piju-touchscreen-go/screenblankmgr"
 )
 
 type Arguments struct {
 	Debug bool
 	Host  string
 	// Options related to the main window
-	DarkMode         bool
-	FullScreen       bool
-	FixedLayout      bool
-	CloseButton      bool
-	HideMousePointer bool
+	DarkMode           bool
+	FullScreen         bool
+	FixedLayout        bool
+	CloseButton        bool
+	HideMousePointer   bool
+	ScreenBlankProfile screenblankmgr.ProfileBase
 }
 
 var args Arguments
 var mainWindow *mainwindow.MainWindow
 var apiClient *apiclient.Client
+var screenMgr *screenblankmgr.ScreenBlankManager
 
 func parseArgs() bool {
 	parser := argparse.NewParser("piju-touchscreen", "A GTK-based touchscreen UI for piju")
@@ -38,6 +41,7 @@ func parseArgs() bool {
 	layoutArg := parser.Selector("l", "layout", []string{"dynamic", "fixed"}, &argparse.Options{Default: "dynamic", Help: "Select whether to use a fixed layout or a dynamic layout to position controls."})
 	closeButtonArg := parser.Flag("", "closebutton", &argparse.Options{Default: false, Help: "Show a close button. Default is to rely on window furniture."})
 	hideMouseArg := parser.Flag("", "hidemousepointer", &argparse.Options{Default: false, Help: "Hide the mouse pointer when it is in the window. Default is not to."})
+	screenblankArg := parser.Selector("", "screenblanker-profile", []string{"none", "balanced", "onoff"}, &argparse.Options{Default: "none", Help: "Actively manage the screen blank based on playpack state"})
 
 	if err := parser.Parse(os.Args); err != nil {
 		fmt.Println(err)
@@ -52,6 +56,14 @@ func parseArgs() bool {
 	args.FixedLayout = (*layoutArg == "fixed")
 	args.CloseButton = *closeButtonArg
 	args.HideMousePointer = *hideMouseArg
+	switch *screenblankArg {
+	case "none":
+		args.ScreenBlankProfile = &screenblankmgr.ProfileNone{}
+	case "balanced":
+		args.ScreenBlankProfile = &screenblankmgr.ProfileBalanced{}
+	case "onoff":
+		args.ScreenBlankProfile = &screenblankmgr.ProfileOnOff{}
+	}
 
 	if !strings.HasPrefix(args.Host, "http") {
 		args.Host = "http://" + args.Host
@@ -75,6 +87,7 @@ func main() {
 	}
 
 	apiClient = &apiclient.Client{Host: args.Host}
+	screenMgr = screenblankmgr.NewScreenBlankManager(args.ScreenBlankProfile)
 
 	app := gtk.NewApplication("com.github.nsw42.piju-touchscreen-go", gio.ApplicationFlagsNone)
 	app.ConnectActivate(func() { activate(app) })
@@ -101,7 +114,10 @@ func getNowPlaying() {
 		"Scanning:", status.Scanning,
 	)
 
-	glib.IdleAdd(func() { mainWindow.ShowNowPlaying(status) })
+	glib.IdleAdd(func() {
+		mainWindow.ShowNowPlaying(status)
+		screenMgr.SetState(status.Status)
+	})
 
 	// And update again, in another second
 	glib.TimeoutAdd(1000, getNowPlaying)
