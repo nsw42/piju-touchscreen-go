@@ -129,7 +129,52 @@ func layoutFixed(window *MainWindow) {
 }
 
 func layoutDynamic(window *MainWindow) {
-	// TODO
+	margin := 20
+
+	window.Artwork.SetMarginStart(margin)
+	window.Artwork.SetMarginEnd(margin)
+	window.Artwork.SetMarginTop(margin)
+	window.Artwork.SetMarginBottom(margin)
+
+	for _, button := range []*gtk.Button{window.PrevButton, window.PlayPauseButton, window.NextButton} {
+		button.SetMarginStart(margin)
+		button.SetMarginEnd(margin)
+		button.SetMarginTop(margin)
+		button.SetMarginBottom(margin)
+	}
+
+	trackArtistContainer := gtk.NewBox(gtk.OrientationVertical, margin)
+	trackArtistContainer.Append(window.TrackNameLabel)
+	trackArtistContainer.Append(window.ArtistLabel)
+	trackArtistContainer.SetVExpand(true)
+
+	trackArtistContainer.SetMarginStart(margin)
+	trackArtistContainer.SetMarginEnd(margin)
+	trackArtistContainer.SetMarginTop(margin)
+	trackArtistContainer.SetMarginBottom(margin)
+
+	topRowContainer := gtk.NewBox(gtk.OrientationHorizontal, margin)
+	topRowContainer.Append(window.Artwork)
+	topRowContainer.Append(trackArtistContainer)
+	topRowContainer.SetVAlign(gtk.AlignCenter)
+	topRowContainer.SetVExpand(true)
+
+	bottomRowContainer := gtk.NewBox(gtk.OrientationHorizontal, margin)
+	bottomRowContainer.Append(window.PrevButton)
+	bottomRowContainer.Append(window.PlayPauseButton)
+	bottomRowContainer.Append(window.NextButton)
+	bottomRowContainer.SetVAlign(gtk.AlignStart)
+	bottomRowContainer.SetHExpand(true)
+	bottomRowContainer.SetHomogeneous(true)
+
+	childContainer := gtk.NewBox(gtk.OrientationVertical, margin)
+	childContainer.Append(topRowContainer)
+	childContainer.Append(bottomRowContainer)
+	childContainer.SetHomogeneous(false)
+
+	// TODO: Close button
+
+	window.Window.SetChild(childContainer)
 }
 
 func NewMainWindow(app *gtk.Application, apiClient *apiclient.Client, darkMode bool, fullScreen bool, fixedLayout bool) *MainWindow {

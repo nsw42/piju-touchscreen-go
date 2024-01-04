@@ -85,14 +85,20 @@ func main() {
 }
 
 func activate(app *gtk.Application) {
-	mainWindow = mainwindow.NewMainWindow(app, apiClient, true, false, true)
+	mainWindow = mainwindow.NewMainWindow(app, apiClient, args.DarkMode, args.FullScreen, args.FixedLayout)
 
 	glib.TimeoutAdd(1000, getNowPlaying)
 }
 
 func getNowPlaying() {
 	status := apiClient.GetCurrentStatus()
-	fmt.Println(status.Status, status.ArtistName, status.TrackName, status.StreamName, status.TrackNumber, "/", status.AlbumTracks, status.Artwork[:20])
+	fmt.Println(status.Status,
+		status.ArtistName,
+		status.TrackName,
+		status.StreamName,
+		status.TrackNumber, "/", status.AlbumTracks,
+		status.Artwork[:min(len(status.Artwork), 20)],
+	)
 
 	glib.IdleAdd(func() { mainWindow.ShowNowPlaying(status) })
 
