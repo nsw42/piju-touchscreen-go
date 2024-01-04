@@ -76,7 +76,7 @@ func main() {
 
 	apiClient = &apiclient.Client{Host: args.Host}
 
-	app := gtk.NewApplication("com.github.diamondburned.gotk4-examples.gtk4.simple", gio.ApplicationFlagsNone)
+	app := gtk.NewApplication("com.github.nsw42.piju-touchscreen-go", gio.ApplicationFlagsNone)
 	app.ConnectActivate(func() { activate(app) })
 
 	if code := app.Run(os.Args); code > 0 {
