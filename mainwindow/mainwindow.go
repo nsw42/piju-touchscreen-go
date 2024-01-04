@@ -35,6 +35,7 @@ type MainWindow struct {
 	PrevButton        *gtk.Button
 	PlayPauseButton   *gtk.Button
 	NextButton        *gtk.Button
+	CloseButton       *gtk.Button
 	ScanningIndicator *gtk.Image
 	PauseIcon         *gtk.Image
 	PlayIcon          *gtk.Image
@@ -137,6 +138,10 @@ func (window *MainWindow) layoutFixed() {
 
 	fixedContainer.Put(window.ScanningIndicator, screenWidth-20, 4)
 
+	if window.CloseButton != nil {
+		fixedContainer.Put(window.CloseButton, 0, 0)
+	}
+
 	window.Window.SetChild(fixedContainer)
 }
 
@@ -190,14 +195,23 @@ func (window *MainWindow) layoutDynamic() {
 	window.ScanningIndicator.SetMarginEnd(margin)
 	window.ScanningIndicator.SetMarginTop(margin)
 	overlay.AddOverlay(window.ScanningIndicator)
+	if window.CloseButton != nil {
+		window.CloseButton.SetHAlign(gtk.AlignStart)
+		window.CloseButton.SetVAlign(gtk.AlignStart)
+		overlay.AddOverlay(window.CloseButton)
+	}
 	overlay.SetChild(childContainer)
-
-	// TODO: Close button
 
 	window.Window.SetChild(overlay)
 }
 
-func NewMainWindow(app *gtk.Application, apiClient *apiclient.Client, darkMode bool, fullScreen bool, fixedLayout bool) *MainWindow {
+func NewMainWindow(app *gtk.Application,
+	apiClient *apiclient.Client,
+	darkMode bool,
+	fullScreen bool,
+	fixedLayout bool,
+	closeButton bool,
+) *MainWindow {
 
 	rtn := &MainWindow{}
 	rtn.ApiClient = apiClient
@@ -260,8 +274,16 @@ func NewMainWindow(app *gtk.Application, apiClient *apiclient.Client, darkMode b
 		}
 	}
 
+	// Overlays
 	rtn.ScanningIndicator = loadLocalImageNoMode("circle", 16)
+	if closeButton {
+		closeIcon := loadLocalImageNoMode("window-close", 0)
+		rtn.CloseButton = gtk.NewButton()
+		rtn.CloseButton.SetChild(closeIcon)
+		rtn.CloseButton.ConnectClicked(rtn.OnQuit)
+	}
 
+	// Layout and show
 	if fixedLayout {
 		rtn.NoTrackLabel = mkLabel(gtk.JustifyCenter, false, darkMode)
 		rtn.layoutFixed()
@@ -289,6 +311,10 @@ func (window *MainWindow) OnPlayPause() {
 
 func (window *MainWindow) OnPrevious() {
 	window.ApiClient.SendPrevious()
+}
+
+func (window *MainWindow) OnQuit() {
+	window.Window.Destroy()
 }
 
 func (window *MainWindow) OnRealized() {
