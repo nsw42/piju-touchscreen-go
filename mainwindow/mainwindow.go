@@ -295,7 +295,7 @@ func NewMainWindow(app *gtk.Application,
 	window.ConnectRealize(rtn.OnRealized)
 	window.Show()
 
-	rtn.ShowConnectionError() // TODO
+	rtn.ShowNowPlaying(apiclient.NowPlaying{Status: apiclient.Stopped})
 	return rtn
 }
 
