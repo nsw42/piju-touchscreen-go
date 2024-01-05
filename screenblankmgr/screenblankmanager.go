@@ -25,15 +25,13 @@ func (manager *ScreenBlankManager) SetState(newState apiclient.Status) {
 	if (manager.State == apiclient.Playing && newState == apiclient.Playing) || (manager.State != apiclient.Playing && newState != apiclient.Playing) {
 		// State is, to all intents and purposes, unchanged
 		manager.TickCountdown -= 1
-		if manager.State == apiclient.Playing {
-			// Playing: tick the profile
-			if manager.TickCountdown <= 0 {
+		if manager.TickCountdown == 0 {
+			if manager.State == apiclient.Playing {
+				// Playing: tick the profile
 				manager.Profile.OnPlayingTick()
 				manager.TickCountdown = tickInterval
-			}
-		} else {
-			// Not playing - notify profile of (delayed) stop
-			if manager.TickCountdown == 0 {
+			} else {
+				// Not playing - notify profile of (delayed) stop
 				manager.Profile.OnStoppedDelayed()
 				// Don't reset the countdown: we only call it once
 			}
