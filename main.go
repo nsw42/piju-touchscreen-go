@@ -109,6 +109,13 @@ func activate(app *gtk.Application) {
 	glib.TimeoutAdd(1000, getNowPlaying)
 }
 
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func getNowPlaying() {
 	status := apiClient.GetCurrentStatus()
 	fmt.Println(status.Status,
