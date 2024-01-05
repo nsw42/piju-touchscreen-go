@@ -26,6 +26,70 @@ func extractIntFromJson(jsonObject map[string]any, key string, defaultVal int) i
 	}
 }
 
+func getStatusFromReply(reply map[string]any) Status {
+	statStr := reply["PlayerStatus"]
+	switch statStr {
+	case "stopped":
+		return Stopped
+	case "playing":
+		return Playing
+	case "paused":
+		return Paused
+	default:
+		// Error in reply
+		fmt.Println("Unrecognised player status: ", statStr)
+		return Stopped
+	}
+}
+
+func getArtistTrackAndStream(reply map[string]any) (bool, string, string, string) {
+	var currentTrack map[string]any
+	currentTrack, ok := reply["CurrentTrack"].(map[string]any)
+	if !ok || len(currentTrack) == 0 {
+		streamName, ok := reply["CurrentStream"].(string)
+		if !ok {
+			streamName = ""
+		}
+		return false, "", "", streamName
+	} else {
+		artistName, ok := currentTrack["artist"].(string)
+		if !ok {
+			artistName = "Unknown artist"
+		}
+		trackName, ok := currentTrack["title"].(string)
+		if !ok {
+			trackName = "Unknown track"
+		}
+		return true, artistName, trackName, ""
+	}
+}
+
+func (client *Client) getArtworkFromReply(reply map[string]any) (string, []byte) {
+	artworkUri, ok := reply["CurrentArtwork"].(string)
+	if !ok {
+		return "", nil
+	}
+
+	if artworkUri != client.CachedArtworkUri {
+		// Need to update our cache
+		client.CachedArtwork = client.fetchArtwork(artworkUri)
+		if client.CachedArtwork != nil {
+			// If the GET failed, we should be prepared to try again, so only update the
+			// cached URI if the GET succeded
+			client.CachedArtworkUri = artworkUri
+		}
+	}
+	return artworkUri, client.CachedArtwork
+}
+
+func getScanningStatus(reply map[string]any) bool {
+	workerStatusStr, ok := reply["WorkerStatus"].(string)
+	if !ok {
+		return false
+	}
+	return (strings.ToLower(workerStatusStr) != "idle")
+}
+
 func (client *Client) GetCurrentStatus() NowPlaying {
 	stat := NowPlaying{}
 	stat.Status = Error // In case we return early
@@ -47,67 +111,13 @@ func (client *Client) GetCurrentStatus() NowPlaying {
 		return stat
 	}
 
-	statStr := reply["PlayerStatus"]
-	var playerStatus Status
-	if statStr == "stopped" {
-		playerStatus = Stopped
-	} else if statStr == "playing" {
-		playerStatus = Playing
-	} else if statStr == "paused" {
-		playerStatus = Paused
-	} else {
-		// Error in reply
-		fmt.Println("Unrecognised player status: ", statStr)
-		return stat
-	}
-
-	var currentTrack map[string]any
-	currentTrack, ok := reply["CurrentTrack"].(map[string]any)
-	if !ok || len(currentTrack) == 0 {
-		stat.IsTrack = false
-		stat.StreamName, ok = reply["CurrentStream"].(string)
-		if !ok {
-			stat.StreamName = ""
-		}
-	} else {
-		stat.IsTrack = true
-		stat.ArtistName, ok = currentTrack["artist"].(string)
-		if !ok {
-			stat.ArtistName = "Unknown artist"
-		}
-		stat.TrackName, ok = currentTrack["title"].(string)
-		if !ok {
-			stat.TrackName = "Unknown track"
-		}
-	}
+	stat.Status = getStatusFromReply(reply)
+	stat.IsTrack, stat.ArtistName, stat.TrackName, stat.StreamName = getArtistTrackAndStream(reply)
 	stat.TrackNumber = extractIntFromJson(reply, "CurrentTrackIndex", 0)
 	stat.AlbumTracks = extractIntFromJson(reply, "MaximumTrackIndex", 0)
+	stat.ArtworkUri, stat.Artwork = client.getArtworkFromReply(reply)
+	stat.Scanning = getScanningStatus(reply)
 
-	stat.ArtworkUri, ok = reply["CurrentArtwork"].(string)
-	if ok {
-		if stat.ArtworkUri != client.CachedArtworkUri {
-			// Need to update our cache
-			client.CachedArtwork = client.fetchArtwork(stat.ArtworkUri)
-			if client.CachedArtwork != nil {
-				// If the GET failed, we should be prepared to try again, so only update the
-				// cached URI if the GET succeded
-				client.CachedArtworkUri = stat.ArtworkUri
-			}
-		}
-		stat.Artwork = client.CachedArtwork
-	} else {
-		stat.ArtworkUri = ""
-		stat.Artwork = nil
-	}
-
-	workerStatusStr, ok := reply["WorkerStatus"].(string)
-	if ok {
-		stat.Scanning = (strings.ToLower(workerStatusStr) != "idle")
-	} else {
-		stat.Scanning = false
-	}
-
-	stat.Status = playerStatus
 	return stat
 }
 
