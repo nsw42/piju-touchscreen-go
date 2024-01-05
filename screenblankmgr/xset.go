@@ -16,9 +16,9 @@ func setTimeout(timeout int) {
 	runXset(strconv.Itoa(timeout))
 }
 
-func runXset(s_arg string) {
-	fmt.Println("xset", "s", s_arg)
-	cmd := exec.Command("xset", "s", s_arg)
+func runXset(sArg string) {
+	fmt.Println("xset", "s", sArg)
+	cmd := exec.Command("xset", "s", sArg)
 	err := cmd.Run()
 	if err != nil {
 		fmt.Println("Error running xset: ", err)
