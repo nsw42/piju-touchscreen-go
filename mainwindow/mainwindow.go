@@ -233,9 +233,9 @@ func NewMainWindow(app *gtk.Application,
 	} else {
 		window.SetSizeRequest(screenWidth, screenHeight)
 	}
-	css_provider := gtk.NewCSSProvider()
-	css_provider.LoadFromPath("mainwindow/mainwindow.css")
-	gtk.StyleContextAddProviderForDisplay(gdk.DisplayGetDefault(), css_provider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+	cssProvider := gtk.NewCSSProvider()
+	cssProvider.LoadFromPath("mainwindow/mainwindow.css")
+	gtk.StyleContextAddProviderForDisplay(gdk.DisplayGetDefault(), cssProvider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	rtn.Window = window
 
