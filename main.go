@@ -37,10 +37,10 @@ func parseArgs() bool {
 	debugArg := parser.Flag("", "debug", &argparse.Options{Default: false, Help: "Enable debug output"})
 	hostArg := parser.String("", "host", &argparse.Options{Default: "localhost:5000", Help: "Connect to server at the given address"})
 	modeArg := parser.Selector("m", "mode", []string{"dark", "light"}, &argparse.Options{Default: "light", Help: "Select the colour scheme of the UI: dark or light"})
-	fullscreenArg := parser.Flag("", "fullscreen", &argparse.Options{Default: false, Help: "Show the main window full-screen. Default is as a desktop window."})
-	layoutArg := parser.Selector("l", "layout", []string{"dynamic", "fixed"}, &argparse.Options{Default: "dynamic", Help: "Select whether to use a fixed layout or a dynamic layout to position controls."})
-	closeButtonArg := parser.Flag("", "closebutton", &argparse.Options{Default: false, Help: "Show a close button. Default is to rely on window furniture."})
-	hideMouseArg := parser.Flag("", "hidemousepointer", &argparse.Options{Default: false, Help: "Hide the mouse pointer when it is in the window. Default is not to."})
+	fullscreenArg := parser.Flag("", "fullscreen", &argparse.Options{Default: false, Help: "Show the main window full-screen"})
+	layoutArg := parser.Selector("l", "layout", []string{"dynamic", "fixed"}, &argparse.Options{Default: "dynamic", Help: "Select whether to use a fixed layout or a dynamic layout to position controls"})
+	closeButtonArg := parser.Flag("", "closebutton", &argparse.Options{Default: false, Help: "Show a close button"})
+	hideMouseArg := parser.Flag("", "hidemousepointer", &argparse.Options{Default: false, Help: "Hide the mouse pointer when it is in the window"})
 	screenblankArg := parser.Selector("", "screenblanker-profile", []string{"none", "balanced", "onoff"}, &argparse.Options{Default: "none", Help: "Actively manage the screen blank based on playpack state"})
 
 	if err := parser.Parse(os.Args); err != nil {
