@@ -98,7 +98,13 @@ func main() {
 }
 
 func activate(app *gtk.Application) {
-	mainWindow = mainwindow.NewMainWindow(app, apiClient, args.DarkMode, args.FullScreen, args.FixedLayout, args.CloseButton)
+	mainWindow = mainwindow.NewMainWindow(app,
+		apiClient,
+		args.DarkMode,
+		args.FullScreen,
+		args.FixedLayout,
+		args.CloseButton,
+		args.HideMousePointer)
 
 	glib.TimeoutAdd(1000, getNowPlaying)
 }

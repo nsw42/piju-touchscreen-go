@@ -211,11 +211,13 @@ func NewMainWindow(app *gtk.Application,
 	fullScreen bool,
 	fixedLayout bool,
 	closeButton bool,
+	hideMousePointer bool,
 ) *MainWindow {
 
 	rtn := &MainWindow{}
 	rtn.ApiClient = apiClient
 	rtn.DarkMode = darkMode
+	rtn.HideMousePointer = hideMousePointer
 
 	// Initialise each bit of the window in turn,
 	// saving the results in rtn
@@ -318,7 +320,10 @@ func (window *MainWindow) OnQuit() {
 }
 
 func (window *MainWindow) OnRealized() {
-	// TODO: Hide mouse pointer
+	if window.HideMousePointer {
+		window.Window.SetCursor(gdk.NewCursorFromName("none", nil))
+	}
+
 	var iconSize int
 	if window.Window.AllocatedWidth() > 1000 {
 		iconSize = 200
