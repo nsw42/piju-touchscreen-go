@@ -5,7 +5,7 @@ version: 1
 goos: linux
 
 # The architecture to compile for. `GOARCH` env variable will be set to this value.
-goarch: armhf
+goarch: arm64
 
 # (Optional) Entrypoint to compile.
 # main: ./path/to/main.go
