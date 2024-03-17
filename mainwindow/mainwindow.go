@@ -48,6 +48,7 @@ type MainWindow struct {
 	PrevIcon          *gtk.Image
 	NextIcon          *gtk.Image
 	// MenuIcon          *gtk.Image
+	MenuAction        *gio.SimpleAction
 	HideMousePointer  bool
 	PlayPauseAction   func()
 	CurrentArtworkUri string
@@ -324,9 +325,9 @@ func NewMainWindow(app *gtk.Application,
 	menu.Append("Radio", "app.resume('radio')")
 	rtn.MenuButton.SetMenuModel(menu)
 	rtn.MenuButton.Popover().SetHasArrow(false)
-	action := gio.NewSimpleAction("resume", glib.NewVariantType("s"))
-	app.ActionMap.AddAction(action)
-	action.ConnectActivate(func(param *glib.Variant) {
+	rtn.MenuAction = gio.NewSimpleActionStateful("resume", glib.NewVariantType("s"), glib.NewVariantString("local"))
+	app.ActionMap.AddAction(rtn.MenuAction)
+	rtn.MenuAction.ConnectActivate(func(param *glib.Variant) {
 		resumeType := param.String()
 		rtn.ApiClient.SendResumeType(resumeType)
 	})
@@ -439,6 +440,7 @@ func (window *MainWindow) ShowNowPlaying(nowPlaying apiclient.NowPlaying) {
 		window.ShowNowPlayingImage(nowPlaying)
 		window.ShowNowPlayingPlayPauseIcon(nowPlaying)
 		window.ShowNowPlayingPrevNext(nowPlaying)
+		window.ShowNowPlayingLocalRadio(nowPlaying)
 		window.ScanningIndicator.SetVisible(nowPlaying.Scanning)
 	}
 }
@@ -510,6 +512,18 @@ func (window *MainWindow) showNowPlayingImageInner(nowPlaying apiclient.NowPlayi
 	window.Artwork.SetFromPixbuf(pixbuf)
 	window.Artwork.Show()
 	return true
+}
+
+func (window *MainWindow) ShowNowPlayingLocalRadio(nowPlaying apiclient.NowPlaying) {
+	var state string
+	if nowPlaying.StreamName == "" {
+		state = "local"
+	} else {
+		state = "radio"
+	}
+	if !window.MenuButton.Popover().IsVisible() {
+		window.MenuAction.ChangeState(glib.NewVariantString(state))
+	}
 }
 
 func (window *MainWindow) ShowNowPlayingPlayPauseIcon(nowPlaying apiclient.NowPlaying) {

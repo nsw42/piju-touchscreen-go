@@ -45,24 +45,22 @@ func getStatusFromReply(reply map[string]any) Status {
 
 func getArtistTrackAndStream(reply map[string]any) (bool, string, string, string) {
 	var currentTrack map[string]any
+	isTrack := false
+	streamName, _ := reply["CurrentStream"].(string)
 	currentTrack, ok := reply["CurrentTrack"].(map[string]any)
-	if !ok || len(currentTrack) == 0 {
-		streamName, ok := reply["CurrentStream"].(string)
-		if !ok {
-			streamName = ""
-		}
-		return false, "", "", streamName
-	} else {
-		artistName, ok := currentTrack["artist"].(string)
+	var artistName, trackName string
+	if ok && len(currentTrack) > 0 {
+		isTrack = true
+		artistName, ok = currentTrack["artist"].(string)
 		if !ok {
 			artistName = "Unknown artist"
 		}
-		trackName, ok := currentTrack["title"].(string)
+		trackName, ok = currentTrack["title"].(string)
 		if !ok {
 			trackName = "Unknown track"
 		}
-		return true, artistName, trackName, ""
 	}
+	return isTrack, artistName, trackName, streamName
 }
 
 func (client *Client) getArtworkFromReply(reply map[string]any) (string, []byte) {
