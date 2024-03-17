@@ -1,11 +1,16 @@
 package mainwindow
 
 import (
+	"embed"
+	"log"
 	"nsw42/piju-touchscreen-go/apiclient"
+	"slices"
 	"strconv"
 
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gdkpixbuf/v2"
+	"github.com/diamondburned/gotk4/pkg/gio/v2"
+	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 )
 
@@ -46,15 +51,43 @@ type MainWindow struct {
 	CurrentArtworkUri string
 }
 
+//go:embed icons/*.png
+var icons embed.FS
+
+//go:embed mainwindow.css
+var cssString string
+
+func imageFromEmbedPNG(leafName string) *gtk.Image {
+	iconData, err := icons.ReadFile("icons/" + leafName)
+	if err != nil {
+		log.Fatalf("icons.ReadFile: %w", err)
+	}
+
+	l, err := gdkpixbuf.NewPixbufLoaderWithType("png")
+	if err != nil {
+		log.Fatalf("NewLoaderWithType png: %w", err)
+	}
+	defer l.Close()
+
+	if err := l.Write(iconData); err != nil {
+		log.Fatalf("PixbufLoader.Write: %w", err)
+	}
+
+	if err := l.Close(); err != nil {
+		log.Fatalf("PixbufLoader.Close: %w", err)
+	}
+
+	pixbuf := l.Pixbuf()
+	return gtk.NewImageFromPixbuf(pixbuf)
+}
+
 func loadLocalImageNoMode(iconName string, iconSize int) *gtk.Image {
 	leafName := iconName
 	if iconSize != 0 {
 		leafName += "_" + strconv.Itoa(iconSize)
 	}
 	leafName += ".png"
-	// TODO: Absolute path?
-	filename := "icons/" + leafName
-	return gtk.NewImageFromFile(filename)
+	return imageFromEmbedPNG(leafName)
 }
 
 func loadLocalImage(iconName string, darkMode bool, iconSize int) *gtk.Image {
@@ -68,9 +101,7 @@ func loadLocalImage(iconName string, darkMode bool, iconSize int) *gtk.Image {
 		leafName += "_" + strconv.Itoa(iconSize)
 	}
 	leafName += ".png"
-	// TODO: Absolute path?
-	filename := "icons/" + leafName
-	return gtk.NewImageFromFile(filename)
+	return imageFromEmbedPNG(leafName)
 }
 
 func mkLabel(justification gtk.Justification, large bool, darkMode bool) *gtk.Label {
@@ -234,7 +265,7 @@ func NewMainWindow(app *gtk.Application,
 		window.SetSizeRequest(screenWidth, screenHeight)
 	}
 	cssProvider := gtk.NewCSSProvider()
-	cssProvider.LoadFromPath("mainwindow/mainwindow.css")
+	cssProvider.LoadFromData(cssString)
 	gtk.StyleContextAddProviderForDisplay(gdk.DisplayGetDefault(), cssProvider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	rtn.Window = window
