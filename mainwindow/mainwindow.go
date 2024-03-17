@@ -40,12 +40,14 @@ type MainWindow struct {
 	PrevButton        *gtk.Button
 	PlayPauseButton   *gtk.Button
 	NextButton        *gtk.Button
+	MenuButton        *gtk.MenuButton
 	CloseButton       *gtk.Button
 	ScanningIndicator *gtk.Image
 	PauseIcon         *gtk.Image
 	PlayIcon          *gtk.Image
 	PrevIcon          *gtk.Image
 	NextIcon          *gtk.Image
+	// MenuIcon          *gtk.Image
 	HideMousePointer  bool
 	PlayPauseAction   func()
 	CurrentArtworkUri string
@@ -56,6 +58,17 @@ var icons embed.FS
 
 //go:embed mainwindow.css
 var cssString string
+
+func findThemeIcon(widget *gtk.Widget, iconNames []string) string {
+	display := widget.Display()
+	theme := gtk.IconThemeGetForDisplay(display)
+	for _, iconName := range iconNames {
+		if slices.Contains(theme.IconNames(), iconName) {
+			return iconName
+		}
+	}
+	return iconNames[0]
+}
 
 func imageFromEmbedPNG(leafName string) *gtk.Image {
 	iconData, err := icons.ReadFile("icons/" + leafName)
@@ -169,6 +182,8 @@ func (window *MainWindow) layoutFixed() {
 
 	fixedContainer.Put(window.ScanningIndicator, screenWidth-20, 4)
 
+	fixedContainer.Put(window.MenuButton, 0, 0)
+
 	if window.CloseButton != nil {
 		fixedContainer.Put(window.CloseButton, 0, 0)
 	}
@@ -226,6 +241,11 @@ func (window *MainWindow) layoutDynamic() {
 	window.ScanningIndicator.SetMarginEnd(margin)
 	window.ScanningIndicator.SetMarginTop(margin)
 	overlay.AddOverlay(window.ScanningIndicator)
+	window.MenuButton.SetHAlign(gtk.AlignStart)
+	window.MenuButton.SetVAlign(gtk.AlignStart)
+	window.MenuButton.SetMarginStart(margin / 2)
+	window.MenuButton.SetMarginTop(margin / 2)
+	overlay.AddOverlay(window.MenuButton)
 	if window.CloseButton != nil {
 		window.CloseButton.SetHAlign(gtk.AlignStart)
 		window.CloseButton.SetVAlign(gtk.AlignStart)
@@ -296,6 +316,21 @@ func NewMainWindow(app *gtk.Application,
 	rtn.NextButton.SetHAlign(gtk.AlignEnd)
 	rtn.NextButton.ConnectClicked(rtn.OnNext)
 
+	// Menu button
+	rtn.MenuButton = gtk.NewMenuButton()
+	rtn.MenuButton.SetHAlign(gtk.AlignCenter)
+	menu := gio.NewMenu()
+	menu.Append("Local music", "app.resume('local')")
+	menu.Append("Radio", "app.resume('radio')")
+	rtn.MenuButton.SetMenuModel(menu)
+	rtn.MenuButton.Popover().SetHasArrow(false)
+	action := gio.NewSimpleAction("resume", glib.NewVariantType("s"))
+	app.ActionMap.AddAction(action)
+	action.ConnectActivate(func(param *glib.Variant) {
+		resumeType := param.String()
+		rtn.ApiClient.SendResumeType(resumeType)
+	})
+
 	// Common properties to the buttons
 	buttons := []*gtk.Button{rtn.PrevButton, rtn.PlayPauseButton, rtn.NextButton}
 	for _, button := range buttons {
@@ -361,6 +396,13 @@ func (window *MainWindow) OnRealized() {
 	} else {
 		iconSize = 100
 	}
+
+	// SetChild not present in the gtk bindings, even though it's in the GTK docs
+	// window.MenuIcon = loadLocalImage("bars", window.DarkMode, iconSize)
+	// window.MenuButton.SetChild(window.MenuIcon)
+
+	menuIconName := findThemeIcon(&window.MenuButton.Widget, []string{"view-more-horizontal-symbolic", "open-menu-symbolic", "xfce-em-menu"})
+	window.MenuButton.SetIconName(menuIconName)
 
 	window.PauseIcon = loadLocalImage("pause", window.DarkMode, iconSize)
 	window.PauseIcon.SetParent(window.PlayPauseButton)

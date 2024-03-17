@@ -1,6 +1,7 @@
 package apiclient
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -148,6 +149,20 @@ func (client *Client) SendResume() {
 	client.SendSimpleCommand("player/resume", "resume")
 }
 
+func (client *Client) SendResumeType(playerType string) {
+	data := map[string]string{
+		"player": playerType,
+	}
+	buf, _ := json.Marshal(data)
+	body := bytes.NewReader(buf)
+	resp, err := httpClient.Post(client.Host+"player/resume", "application/json", body)
+	if err != nil {
+		fmt.Println("Failed to send command to server: ", err)
+		return
+	}
+	defer resp.Body.Close()
+}
+
 func (client *Client) SendNext() {
 	client.SendSimpleCommand("player/next", "skip to next track")
 }
@@ -159,7 +174,7 @@ func (client *Client) SendPrevious() {
 func (client *Client) SendSimpleCommand(uriSuffix string, operationDesc string) {
 	resp, err := httpClient.Post(client.Host+uriSuffix, "application/json", nil)
 	if err != nil {
-		fmt.Println("Failed to send command to server: ", err)
+		fmt.Println("Failed to send "+operationDesc+" command to server: ", err)
 		return
 	}
 	defer resp.Body.Close()
