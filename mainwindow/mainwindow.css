@@ -33,6 +33,13 @@
   border-color: #000;
 }
 
+menubutton.piju-dark-button > button {
+  /* clone .piju-dark-button */
+  background: #3a3f44;
+  border-color: #000;
+  color: rgb(204, 204, 204);
+}
+
 .piju-dark-button:hover {
   background-color: #31363a;  /* --bs-btn-hover-bg from bootswatch/slate */
   filter: brightness(80%);

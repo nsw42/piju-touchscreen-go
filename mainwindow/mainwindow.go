@@ -325,6 +325,9 @@ func NewMainWindow(app *gtk.Application,
 	menu.Append("Radio", "app.resume('radio')")
 	rtn.MenuButton.SetMenuModel(menu)
 	rtn.MenuButton.Popover().SetHasArrow(false)
+	if darkMode {
+		rtn.MenuButton.AddCSSClass("piju-dark-button")
+	}
 	rtn.MenuAction = gio.NewSimpleActionStateful("resume", glib.NewVariantType("s"), glib.NewVariantString("local"))
 	app.ActionMap.AddAction(rtn.MenuAction)
 	rtn.MenuAction.ConnectActivate(func(param *glib.Variant) {
