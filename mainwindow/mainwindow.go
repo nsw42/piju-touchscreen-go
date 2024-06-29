@@ -87,10 +87,6 @@ func imageFromEmbedPNG(leafName string) *gtk.Image {
 		log.Fatalf("PixbufLoader.Write: %w", err)
 	}
 
-	if err := l.Close(); err != nil {
-		log.Fatalf("PixbufLoader.Close: %w", err)
-	}
-
 	pixbuf := l.Pixbuf()
 	return gtk.NewImageFromPixbuf(pixbuf)
 }
@@ -490,14 +486,19 @@ func (window *MainWindow) showNowPlayingImageInner(nowPlaying apiclient.NowPlayi
 	}
 
 	loader := gdkpixbuf.NewPixbufLoader()
-	err := loader.Write(nowPlaying.Artwork)
-	if err == nil {
-		err = loader.Close()
+	if err := loader.Write(nowPlaying.Artwork); err != nil {
+		log.Println("loader.Write failed:", err.Error())
+		return false
 	}
-	if err != nil {
+	if err := loader.Close(); err != nil {
+		log.Println("loader.Close failed:", err.Error())
 		return false
 	}
 	pixbuf := loader.Pixbuf()
+	if pixbuf == nil {
+		log.Println("loader.Pixbuf failed")
+		return false
+	}
 
 	width := pixbuf.Width()
 	height := pixbuf.Height()

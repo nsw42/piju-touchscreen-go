@@ -18,6 +18,8 @@ type Client struct {
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
+var copyBuffer = make([]byte, 2048)
+
 func extractIntFromJson(jsonObject map[string]any, key string, defaultVal int) int {
 	tempFloat, ok := jsonObject[key].(float64)
 	if !ok {
@@ -132,11 +134,12 @@ func (client *Client) fetchArtwork(uri string) []byte {
 	if resp.StatusCode != http.StatusOK {
 		return nil
 	}
-	artwork, err := io.ReadAll(resp.Body)
+	var buffer bytes.Buffer
+	_, err = io.CopyBuffer(&buffer, resp.Body, copyBuffer)
 	if err != nil {
 		return nil
 	}
-	return artwork
+	return buffer.Bytes()
 }
 
 func (client *Client) SendPause() {
