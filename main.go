@@ -5,6 +5,9 @@ import (
 	"os"
 	"strings"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/akamensky/argparse"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
@@ -18,6 +21,7 @@ import (
 type Arguments struct {
 	Debug bool
 	Host  string
+	PProf bool
 	// Options related to the main window
 	DarkMode           bool
 	FullScreen         bool
@@ -36,6 +40,7 @@ func parseArgs() bool {
 	parser := argparse.NewParser("piju-touchscreen", "A GTK-based touchscreen UI for piju")
 	debugArg := parser.Flag("", "debug", &argparse.Options{Default: false, Help: "Enable debug output"})
 	hostArg := parser.String("", "host", &argparse.Options{Default: "localhost:5000", Help: "Connect to server at the given address"})
+	pprofArg := parser.Flag("", "pprof", &argparse.Options{Default: false, Help: "Enable profiling server on port 6060"})
 	modeArg := parser.Selector("m", "mode", []string{"dark", "light"}, &argparse.Options{Default: "light", Help: "Select the colour scheme of the UI: dark or light"})
 	fullscreenArg := parser.Flag("", "fullscreen", &argparse.Options{Default: false, Help: "Show the main window full-screen"})
 	layoutArg := parser.Selector("l", "layout", []string{"dynamic", "fixed"}, &argparse.Options{Default: "dynamic", Help: "Select whether to use a fixed layout or a dynamic layout to position controls"})
@@ -51,6 +56,7 @@ func parseArgs() bool {
 
 	args.Debug = *debugArg
 	args.Host = *hostArg
+	args.PProf = *pprofArg
 	args.DarkMode = (*modeArg == "dark")
 	args.FullScreen = *fullscreenArg
 	args.FixedLayout = (*layoutArg == "fixed")
@@ -84,6 +90,12 @@ func parseArgs() bool {
 func main() {
 	if !parseArgs() {
 		return
+	}
+
+	if args.PProf {
+		go func() {
+			http.ListenAndServe(":6060", nil)
+		}()
 	}
 
 	apiClient = &apiclient.Client{Host: args.Host}
