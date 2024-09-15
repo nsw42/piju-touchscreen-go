@@ -102,7 +102,7 @@ func main() {
 		}()
 	}
 
-	apiClient = &apiclient.Client{Host: args.Host}
+	apiClient = &apiclient.Client{IsConnected: false, Host: args.Host}
 	screenMgr = screenblankmgr.NewScreenBlankManager(args.ScreenBlankProfile)
 
 	app := gtk.NewApplication("com.github.nsw42.piju-touchscreen-go", gio.ApplicationFlagsNone)
@@ -111,6 +111,14 @@ func main() {
 	if code := app.Run(os.Args); code > 0 {
 		os.Exit(code)
 	}
+}
+
+func playerUpdate(nowPlaying apiclient.NowPlaying) {
+	mainWindow.ShowNowPlaying(nowPlaying)
+	glib.IdleAdd(func() bool {
+		screenMgr.SetState(apiClient.PlayerStatus)
+		return glib.SOURCE_REMOVE // =don't call me again
+	})
 }
 
 func activate(app *gtk.Application) {
@@ -122,32 +130,11 @@ func activate(app *gtk.Application) {
 		args.CloseButton,
 		args.HideMousePointer)
 
-	glib.TimeoutAdd(1000, getNowPlaying)
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func getNowPlaying() {
-	status := apiClient.GetCurrentStatus()
-	fmt.Println(status.Status,
-		status.ArtistName,
-		status.TrackName,
-		status.StreamName,
-		status.TrackNumber, "/", status.AlbumTracks,
-		status.Artwork[:min(len(status.Artwork), 20)],
-		"Scanning:", status.Scanning,
-	)
-
-	glib.IdleAdd(func() {
-		mainWindow.ShowNowPlaying(status)
-		screenMgr.SetState(status.Status)
+	glib.TimeoutAdd(5000, func() bool {
+		if !apiClient.IsConnected {
+			playerUpdate(apiclient.NowPlaying{Status: apiclient.Error})
+			apiClient.IsConnected = apiClient.ConnectWS(mainWindow.ShowNowPlaying)
+		}
+		return glib.SOURCE_CONTINUE // =please keep calling me
 	})
-
-	// And update again, in another second
-	glib.TimeoutAdd(1000, getNowPlaying)
 }

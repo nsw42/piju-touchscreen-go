@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/akamensky/argparse v1.4.0
 	github.com/diamondburned/gotk4/pkg v0.2.2
+	github.com/gorilla/websocket v1.5.3
 )
 
 require (
