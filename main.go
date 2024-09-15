@@ -37,9 +37,13 @@ var apiClient *apiclient.Client
 var screenMgr *screenblankmgr.ScreenBlankManager
 
 func parseArgs() bool {
+	var defaultHost string
+	if hostname, err := os.Hostname(); err == nil {
+		defaultHost = hostname + ":5000"
+	}
 	parser := argparse.NewParser("piju-touchscreen", "A GTK-based touchscreen UI for piju")
 	debugArg := parser.Flag("", "debug", &argparse.Options{Default: false, Help: "Enable debug output"})
-	hostArg := parser.String("", "host", &argparse.Options{Default: "localhost:5000", Help: "Connect to server at the given address"})
+	hostArg := parser.String("", "host", &argparse.Options{Default: defaultHost, Help: "Connect to server at the given address"})
 	pprofArg := parser.Flag("", "pprof", &argparse.Options{Default: false, Help: "Enable profiling server on port 6060"})
 	modeArg := parser.Selector("m", "mode", []string{"dark", "light"}, &argparse.Options{Default: "light", Help: "Select the colour scheme of the UI: dark or light"})
 	fullscreenArg := parser.Flag("", "fullscreen", &argparse.Options{Default: false, Help: "Show the main window full-screen"})
