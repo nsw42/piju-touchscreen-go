@@ -486,6 +486,10 @@ func (window *MainWindow) showNowPlayingImageInner(nowPlaying apiclient.NowPlayi
 	}
 
 	loader := gdkpixbuf.NewPixbufLoader()
+	if loader == nil {
+		log.Println("Failed to allocate pixbuf loader")
+		return false
+	}
 	if err := loader.Write(nowPlaying.Artwork); err != nil {
 		log.Println("loader.Write failed:", err.Error())
 		return false

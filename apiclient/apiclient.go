@@ -5,12 +5,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 type Client struct {
+	IsConnected      bool
+	PlayerStatus     Status
 	Host             string
 	CachedArtworkUri string
 	CachedArtwork    []byte
@@ -29,6 +35,14 @@ func extractIntFromJson(jsonObject map[string]any, key string, defaultVal int) i
 	} else {
 		return int(tempFloat)
 	}
+}
+
+func getScanningStatus(reply map[string]any) bool {
+	workerStatusStr, ok := reply["WorkerStatus"].(string)
+	if !ok {
+		return false
+	}
+	return (strings.ToLower(workerStatusStr) != "idle")
 }
 
 func getStatusFromReply(reply map[string]any) Status {
@@ -85,31 +99,62 @@ func (client *Client) getArtworkFromReply(reply map[string]any) (string, []byte)
 	return artworkUri, client.CachedArtwork
 }
 
-func getScanningStatus(reply map[string]any) bool {
-	workerStatusStr, ok := reply["WorkerStatus"].(string)
-	if !ok {
+func (client *Client) ConnectWS(showNowPlaying func(NowPlaying)) bool {
+	// Returns whether or not connection was successful
+
+	ws, _ := url.Parse(client.Host)
+	ws.Scheme = "ws"
+	ws.Path = "ws"
+	conn, _, err := websocket.DefaultDialer.Dial(ws.String(), nil)
+	if err != nil {
+		log.Println("Failed to connect - retry in 5s")
 		return false
 	}
-	return (strings.ToLower(workerStatusStr) != "idle")
+	client.IsConnected = true
+
+	go client.handleWsMessages(conn, showNowPlaying)
+
+	return true
+}
+
+func (client *Client) handleWsMessages(conn *websocket.Conn, showNowPlaying func(NowPlaying)) {
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			conn.Close()
+			client.IsConnected = false
+			client.PlayerStatus = Error
+			showNowPlaying(NowPlaying{Status: Error})
+			return
+		}
+
+		status := client.statusFromReader(bytes.NewReader(message))
+		log.Println("Status update received: ", status.ArtistName, status.TrackName, status.Status, status.StreamName)
+		client.PlayerStatus = status.Status
+		showNowPlaying(status)
+	}
 }
 
 func (client *Client) GetCurrentStatus() NowPlaying {
-	stat := NowPlaying{}
-	stat.Status = Error // In case we return early
 	resp, err := httpClient.Get(client.Host)
 	if err != nil {
 		fmt.Println("Error getting server status: ", err)
-		return stat
+		return NowPlaying{Status: Error}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println("Error getting server status: ", resp.StatusCode)
-		return stat
+		return NowPlaying{Status: Error}
 	}
 
+	return client.statusFromReader(resp.Body)
+}
+
+func (client *Client) statusFromReader(reader io.Reader) NowPlaying {
+	stat := NowPlaying{}
 	var reply map[string]any
-	if err = json.NewDecoder(resp.Body).Decode(&reply); err != nil {
+	if err := json.NewDecoder(reader).Decode(&reply); err != nil {
 		fmt.Println("Error decoding JSON: ", err)
 		return stat
 	}
