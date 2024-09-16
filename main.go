@@ -115,10 +115,6 @@ func main() {
 
 func playerUpdate(nowPlaying apiclient.NowPlaying) {
 	mainWindow.ShowNowPlaying(nowPlaying)
-	glib.IdleAdd(func() bool {
-		screenMgr.SetState(apiClient.PlayerStatus)
-		return glib.SOURCE_REMOVE // =don't call me again
-	})
 }
 
 func activate(app *gtk.Application) {
@@ -135,6 +131,10 @@ func activate(app *gtk.Application) {
 			playerUpdate(apiclient.NowPlaying{Status: apiclient.Error})
 			apiClient.IsConnected = apiClient.ConnectWS(mainWindow.ShowNowPlaying)
 		}
+		return glib.SOURCE_CONTINUE // =please keep calling me
+	})
+	glib.TimeoutAdd(1000, func() bool {
+		screenMgr.SetState(apiClient.PlayerStatus)
 		return glib.SOURCE_CONTINUE // =please keep calling me
 	})
 }
