@@ -47,7 +47,7 @@ Cross-compiling relies upon the Docker images at <https://github.com/nsw42/alpin
 
 ## Known issues
 
-There is a memory leak in earlier versions of the underlying go-gtk library. (See <https://github.com/diamondburned/gotk4/issues/126>). Building with go 1.24 and gotk4 v0.3.1 seems to have fixed it. Without that fix, memory use of the UI steadily increases every time the 'now playing' artwork changes. If you cannot use those recent versions of go and gotk4, the simplest fix is to create a cron job that kills the running touchscreen process at a time when people are not likely to be using the UI. If your OS provides `/etc/periodic/daily/` to run such operations, and it also includes `pkill`, add the following shell script as `/etc/periodic/daily/piju-touchscreen-go`:
+There is a memory leak in the underlying go-gtk library (see <https://github.com/diamondburned/gotk4/issues/126>). Until those fixes are available, memory use of the UI steadily increases every time the 'now playing' artwork changes. The simplest fix is to create a cron job that kills the running touchscreen process at a time when people are not likely to be using the UI. If your OS provides `/etc/periodic/daily/` to run such operations, and it also includes `pkill`, add the following shell script as `/etc/periodic/daily/piju-touchscreen-go`:
 
 ```sh
 #! /bin/sh
