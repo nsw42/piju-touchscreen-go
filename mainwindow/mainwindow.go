@@ -282,7 +282,7 @@ func NewMainWindow(app *gtk.Application,
 		window.SetSizeRequest(screenWidth, screenHeight)
 	}
 	cssProvider := gtk.NewCSSProvider()
-	cssProvider.LoadFromData(cssString)
+	cssProvider.LoadFromString(cssString)
 	gtk.StyleContextAddProviderForDisplay(gdk.DisplayGetDefault(), cssProvider, gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 	rtn.Window = window
@@ -361,7 +361,7 @@ func NewMainWindow(app *gtk.Application,
 	}
 
 	window.ConnectRealize(rtn.OnRealized)
-	window.Show()
+	window.SetVisible(true)
 
 	rtn.ShowNowPlaying(apiclient.NowPlaying{Status: apiclient.Stopped})
 	return rtn
@@ -415,15 +415,25 @@ func (window *MainWindow) OnRealized() {
 
 	window.NextIcon = loadLocalImage("forward", window.DarkMode, iconSize)
 	window.NextIcon.SetParent(window.NextButton)
+
+	window.QrCodeIcon = window.NewQRCode(256)
+}
+
+func (window *MainWindow) NewQRCode(size int) *gtk.Image {
+	png, err := qrcode.Encode("http://piju", qrcode.Medium, 256)
+	if err != nil {
+		log.Println("Error generating QR code:", err)
+	}
+	return imageFromPNGBytes(png)
 }
 
 func (window *MainWindow) ShowConnectionError() {
-	window.ArtistLabel.Hide()
-	window.TrackNameLabel.Hide()
-	window.Artwork.Hide()
-	window.NoTrackLabel.Show()
+	window.ArtistLabel.SetVisible(false)
+	window.TrackNameLabel.SetVisible(false)
+	window.Artwork.SetVisible(false)
+	window.NoTrackLabel.SetVisible(true)
 	window.NoTrackLabel.SetLabel("Connection error")
-	window.ScanningIndicator.Hide()
+	window.ScanningIndicator.SetVisible(false)
 	window.PlayIcon.SetVisible(true)
 	window.PauseIcon.SetVisible(false)
 	window.PrevButton.SetSensitive(false)
@@ -446,21 +456,21 @@ func (window *MainWindow) ShowNowPlaying(nowPlaying apiclient.NowPlaying) {
 
 func (window *MainWindow) ShowNowPlayingArtistAndTrack(nowPlaying apiclient.NowPlaying) {
 	if nowPlaying.IsTrack {
-		window.NoTrackLabel.Hide()
+		window.NoTrackLabel.SetVisible(false)
 		window.ArtistLabel.SetLabel(nowPlaying.ArtistName)
-		window.ArtistLabel.Show()
+		window.ArtistLabel.SetVisible(true)
 		window.TrackNameLabel.SetLabel(nowPlaying.TrackName)
-		window.TrackNameLabel.Show()
+		window.TrackNameLabel.SetVisible(true)
 	} else if nowPlaying.StreamName != "" {
-		window.NoTrackLabel.Hide()
-		window.ArtistLabel.Hide()
+		window.NoTrackLabel.SetVisible(false)
+		window.ArtistLabel.SetVisible(false)
 		window.TrackNameLabel.SetLabel(nowPlaying.StreamName)
-		window.TrackNameLabel.Show()
+		window.TrackNameLabel.SetVisible(true)
 	} else {
-		window.ArtistLabel.Hide()
-		window.TrackNameLabel.Hide()
+		window.ArtistLabel.SetVisible(false)
+		window.TrackNameLabel.SetVisible(false)
 		window.NoTrackLabel.SetLabel("No track")
-		window.NoTrackLabel.Show()
+		window.NoTrackLabel.SetVisible(true)
 	}
 }
 
@@ -468,13 +478,13 @@ func (window *MainWindow) ShowNowPlayingImage(nowPlaying apiclient.NowPlaying) {
 	if nowPlaying.ArtworkUri == window.CurrentArtworkUri {
 		// Ensure the artwork is visible; otherwise, there is nothing to do
 		if nowPlaying.Artwork != nil {
-			window.Artwork.Show()
+			window.Artwork.SetVisible(true)
 		}
 		return
 	}
 	if !window.showNowPlayingImageInner(nowPlaying) {
 		// Either no artwork or it's corrupted
-		window.Artwork.Hide()
+		window.Artwork.SetVisible(false)
 	}
 	window.CurrentArtworkUri = nowPlaying.ArtworkUri
 }
@@ -518,7 +528,7 @@ func (window *MainWindow) showNowPlayingImageInner(nowPlaying apiclient.NowPlayi
 		pixbuf = pixbuf.ScaleSimple(destWidth, destHeight, gdkpixbuf.InterpBilinear)
 	}
 	window.Artwork.SetFromPixbuf(pixbuf)
-	window.Artwork.Show()
+	window.Artwork.SetVisible(true)
 	return true
 }
 
