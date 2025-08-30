@@ -134,6 +134,7 @@ func activate(app *gtk.Application) {
 		return glib.SOURCE_CONTINUE // =please keep calling me
 	})
 	glib.TimeoutAdd(1000, func() bool {
+		mainWindow.CheckWindowSize()
 		screenMgr.SetState(apiClient.PlayerStatus)
 		return glib.SOURCE_CONTINUE // =please keep calling me
 	})

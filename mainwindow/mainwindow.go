@@ -3,6 +3,7 @@ package mainwindow
 import (
 	"embed"
 	"log"
+	"net/url"
 	"nsw42/piju-touchscreen-go/apiclient"
 	"slices"
 	"strconv"
@@ -12,6 +13,8 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 const (
@@ -29,7 +32,17 @@ const (
 	buttonXPadding float64 = (screenWidth - 3*imgButtonW) / 6
 )
 
+type MainWindowState int
+
+const (
+	MainWindowStateControls MainWindowState = iota
+	MainWindowStateQRCode
+)
+
 type MainWindow struct {
+	State             MainWindowState
+	ControlsContainer *gtk.Widget
+	QrCodeContainer   *gtk.Fixed
 	ApiClient         *apiclient.Client
 	DarkMode          bool
 	Window            *gtk.ApplicationWindow
@@ -47,8 +60,11 @@ type MainWindow struct {
 	PlayIcon          *gtk.Image
 	PrevIcon          *gtk.Image
 	NextIcon          *gtk.Image
+	QrCodeIcon        *gtk.Image
 	// MenuIcon          *gtk.Image
 	MenuAction        *gio.SimpleAction
+	PreviousWidth     int
+	PreviousHeight    int
 	HideMousePointer  bool
 	PlayPauseAction   func()
 	CurrentArtworkUri string
@@ -77,13 +93,17 @@ func imageFromEmbedPNG(leafName string) *gtk.Image {
 		log.Fatalf("icons.ReadFile: %w", err)
 	}
 
+	return imageFromPNGBytes(iconData)
+}
+
+func imageFromPNGBytes(data []byte) *gtk.Image {
 	l, err := gdkpixbuf.NewPixbufLoaderWithType("png")
 	if err != nil {
 		log.Fatalf("NewLoaderWithType png: %w", err)
 	}
 	defer l.Close()
 
-	if err := l.Write(iconData); err != nil {
+	if err := l.Write(data); err != nil {
 		log.Fatalf("PixbufLoader.Write: %w", err)
 	}
 
@@ -153,19 +173,22 @@ func (window *MainWindow) layoutFixed() {
 	y0Padding = 10
 	labelH = maxImageSize / 2
 
-	fixedContainer.Put(window.Artwork, xPadding, y0Padding)
+	controlsContainer := gtk.NewFixed()
+	window.ControlsContainer = &controlsContainer.Widget
+
+	controlsContainer.Put(window.Artwork, xPadding, y0Padding)
 
 	trackArtistX0 := xPadding + maxImageSize + xPadding
-	fixedContainer.Put(window.TrackNameLabel, trackArtistX0, y0Padding)
+	controlsContainer.Put(window.TrackNameLabel, trackArtistX0, y0Padding)
 
 	artistY0 := y0Padding + labelH + y0Padding
-	fixedContainer.Put(window.ArtistLabel, trackArtistX0, artistY0)
+	controlsContainer.Put(window.ArtistLabel, trackArtistX0, artistY0)
 
 	for _, label := range []*gtk.Label{window.TrackNameLabel, window.ArtistLabel} {
 		label.SetSizeRequest(int(screenWidth-trackArtistX0-xPadding), int(labelH))
 	}
 
-	fixedContainer.Put(window.NoTrackLabel, (screenWidth-noTrackLabelW)/2, 150)
+	controlsContainer.Put(window.NoTrackLabel, (screenWidth-noTrackLabelW)/2, 150)
 	window.NoTrackLabel.SetSizeRequest(int(noTrackLabelW), 32)
 	// buttons
 	// image is 100x100; button padding takes it to 112x110
@@ -173,9 +196,13 @@ func (window *MainWindow) layoutFixed() {
 	//   SPC  IMG  2xSPC  IMG  2xSPC  IMG  SPC
 	// 6xSPC + 3xIMG = SCREEN_WIDTH
 	// => SPC = (SCREEN_WIDTH - 3*IMG) / 6
-	fixedContainer.Put(window.PrevButton, buttonXPadding, buttonY0)
-	fixedContainer.Put(window.PlayPauseButton, (screenWidth-imgButtonW)/2, buttonY0)
-	fixedContainer.Put(window.NextButton, screenWidth-buttonXPadding-imgButtonW, buttonY0)
+	controlsContainer.Put(window.PrevButton, buttonXPadding, buttonY0)
+	controlsContainer.Put(window.PlayPauseButton, (screenWidth-imgButtonW)/2, buttonY0)
+	controlsContainer.Put(window.NextButton, screenWidth-buttonXPadding-imgButtonW, buttonY0)
+
+	fixedContainer.Put(controlsContainer, 0, 0)
+
+	fixedContainer.Put(window.QrCodeContainer, 0, 0)
 
 	fixedContainer.Put(window.ScanningIndicator, screenWidth-20, 4)
 
@@ -227,12 +254,14 @@ func (window *MainWindow) layoutDynamic() {
 	bottomRowContainer.SetHExpand(true)
 	bottomRowContainer.SetHomogeneous(true)
 
-	childContainer := gtk.NewBox(gtk.OrientationVertical, margin)
-	childContainer.Append(topRowContainer)
-	childContainer.Append(bottomRowContainer)
-	childContainer.SetHomogeneous(false)
+	controlsContainer := gtk.NewBox(gtk.OrientationVertical, margin)
+	controlsContainer.Append(topRowContainer)
+	controlsContainer.Append(bottomRowContainer)
+	controlsContainer.SetHomogeneous(false)
+	window.ControlsContainer = &controlsContainer.Widget
 
 	overlay := gtk.NewOverlay()
+	overlay.AddOverlay(window.QrCodeContainer) // ensure it's the bottom in the z-order
 	window.ScanningIndicator.SetHAlign(gtk.AlignEnd)
 	window.ScanningIndicator.SetVAlign(gtk.AlignStart)
 	window.ScanningIndicator.SetMarginEnd(margin)
@@ -248,7 +277,7 @@ func (window *MainWindow) layoutDynamic() {
 		window.CloseButton.SetVAlign(gtk.AlignStart)
 		overlay.AddOverlay(window.CloseButton)
 	}
-	overlay.SetChild(childContainer)
+	overlay.SetChild(controlsContainer)
 
 	window.Window.SetChild(overlay)
 }
@@ -263,6 +292,7 @@ func NewMainWindow(app *gtk.Application,
 ) *MainWindow {
 
 	rtn := &MainWindow{}
+	rtn.State = MainWindowStateControls
 	rtn.ApiClient = apiClient
 	rtn.DarkMode = darkMode
 	rtn.HideMousePointer = hideMousePointer
@@ -319,6 +349,7 @@ func NewMainWindow(app *gtk.Application,
 	menu := gio.NewMenu()
 	menu.Append("Local music", "app.resume('local')")
 	menu.Append("Radio", "app.resume('radio')")
+	menu.Append("Link", "app.resume('link')")
 	rtn.MenuButton.SetMenuModel(menu)
 	rtn.MenuButton.Popover().SetHasArrow(false)
 	if darkMode {
@@ -328,7 +359,18 @@ func NewMainWindow(app *gtk.Application,
 	app.ActionMap.AddAction(rtn.MenuAction)
 	rtn.MenuAction.ConnectActivate(func(param *glib.Variant) {
 		resumeType := param.String()
-		rtn.ApiClient.SendResumeType(resumeType)
+		if resumeType == "link" {
+			// touchscreen-only action: show the link QR code
+			rtn.State = MainWindowStateQRCode
+			rtn.ControlsContainer.SetVisible(false)
+			rtn.QrCodeContainer.SetVisible(true)
+			rtn.MenuAction.ChangeState(glib.NewVariantString("link"))
+		} else {
+			rtn.State = MainWindowStateControls
+			rtn.ControlsContainer.SetVisible(true)
+			rtn.QrCodeContainer.SetVisible(false)
+			rtn.ApiClient.SendResumeType(resumeType)
+		}
 	})
 
 	// Common properties to the buttons
@@ -352,6 +394,8 @@ func NewMainWindow(app *gtk.Application,
 	}
 
 	// Layout and show
+	rtn.QrCodeContainer = gtk.NewFixed()
+	rtn.QrCodeContainer.SetVisible(false)
 	if fixedLayout {
 		rtn.NoTrackLabel = mkLabel(gtk.JustifyCenter, false, darkMode)
 		rtn.layoutFixed()
@@ -415,12 +459,29 @@ func (window *MainWindow) OnRealized() {
 
 	window.NextIcon = loadLocalImage("forward", window.DarkMode, iconSize)
 	window.NextIcon.SetParent(window.NextButton)
+}
 
-	window.QrCodeIcon = window.NewQRCode(256)
+func (window *MainWindow) Resized(newWidth, newHeight int) {
+	qrSize := min(newWidth, newHeight) - 32
+	qrSize = max(qrSize, 16)
+	if window.QrCodeIcon != nil {
+		window.QrCodeContainer.Remove(window.QrCodeIcon)
+	}
+	window.QrCodeIcon = window.NewQRCode(qrSize)
+	window.QrCodeIcon.SetVisible(true)
+	window.QrCodeIcon.SetSizeRequest(qrSize, qrSize)
+	x := (newWidth - qrSize) / 2
+	y := (newHeight - qrSize) / 2
+	window.QrCodeContainer.Put(window.QrCodeIcon, float64(x), float64(y))
+	window.PreviousWidth = newWidth
+	window.PreviousHeight = newHeight
 }
 
 func (window *MainWindow) NewQRCode(size int) *gtk.Image {
-	png, err := qrcode.Encode("http://piju", qrcode.Medium, 256)
+	webui, _ := url.Parse(window.ApiClient.Host)
+	webui.Host = webui.Hostname() // strip the port
+	webuiUrl := webui.String()
+	png, err := qrcode.Encode(webuiUrl, qrcode.Medium, size)
 	if err != nil {
 		log.Println("Error generating QR code:", err)
 	}
@@ -451,6 +512,14 @@ func (window *MainWindow) ShowNowPlaying(nowPlaying apiclient.NowPlaying) {
 		window.ShowNowPlayingPrevNext(nowPlaying)
 		window.ShowNowPlayingLocalRadio(nowPlaying)
 		window.ScanningIndicator.SetVisible(nowPlaying.Scanning)
+	}
+}
+
+func (window *MainWindow) CheckWindowSize() {
+	newWidth := window.Window.Width()
+	newHeight := window.Window.Height()
+	if newWidth != window.PreviousWidth || newHeight != window.PreviousHeight {
+		window.Resized(newWidth, newHeight)
 	}
 }
 
@@ -539,7 +608,7 @@ func (window *MainWindow) ShowNowPlayingLocalRadio(nowPlaying apiclient.NowPlayi
 	} else {
 		state = "radio"
 	}
-	if !window.MenuButton.Popover().IsVisible() {
+	if !window.MenuButton.Popover().IsVisible() && window.State == MainWindowStateControls {
 		window.MenuAction.ChangeState(glib.NewVariantString(state))
 	}
 }
