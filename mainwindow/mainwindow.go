@@ -488,7 +488,7 @@ func (window *MainWindow) NewQRCode(size int) *gtk.Image {
 	return imageFromPNGBytes(png)
 }
 
-func (window *MainWindow) ShowConnectionError() {
+func (window *MainWindow) showConnectionError() {
 	window.ArtistLabel.SetVisible(false)
 	window.TrackNameLabel.SetVisible(false)
 	window.Artwork.SetVisible(false)
@@ -502,15 +502,22 @@ func (window *MainWindow) ShowConnectionError() {
 	window.NextButton.SetSensitive(false)
 }
 
+func (window *MainWindow) QueueShowNowPlaying(nowPlaying apiclient.NowPlaying) {
+	glib.IdleAdd(func() bool {
+		window.ShowNowPlaying(nowPlaying)
+		return glib.SOURCE_REMOVE // =no need to call me again
+	})
+}
+
 func (window *MainWindow) ShowNowPlaying(nowPlaying apiclient.NowPlaying) {
 	if nowPlaying.Status == apiclient.Error {
-		window.ShowConnectionError()
+		window.showConnectionError()
 	} else {
-		window.ShowNowPlayingArtistAndTrack(nowPlaying)
-		window.ShowNowPlayingImage(nowPlaying)
-		window.ShowNowPlayingPlayPauseIcon(nowPlaying)
-		window.ShowNowPlayingPrevNext(nowPlaying)
-		window.ShowNowPlayingLocalRadio(nowPlaying)
+		window.showNowPlayingArtistAndTrack(nowPlaying)
+		window.showNowPlayingImage(nowPlaying)
+		window.showNowPlayingPlayPauseIcon(nowPlaying)
+		window.showNowPlayingPrevNext(nowPlaying)
+		window.showNowPlayingLocalRadio(nowPlaying)
 		window.ScanningIndicator.SetVisible(nowPlaying.Scanning)
 	}
 }
@@ -523,7 +530,7 @@ func (window *MainWindow) CheckWindowSize() {
 	}
 }
 
-func (window *MainWindow) ShowNowPlayingArtistAndTrack(nowPlaying apiclient.NowPlaying) {
+func (window *MainWindow) showNowPlayingArtistAndTrack(nowPlaying apiclient.NowPlaying) {
 	if nowPlaying.IsTrack {
 		window.NoTrackLabel.SetVisible(false)
 		window.ArtistLabel.SetLabel(nowPlaying.ArtistName)
@@ -543,7 +550,7 @@ func (window *MainWindow) ShowNowPlayingArtistAndTrack(nowPlaying apiclient.NowP
 	}
 }
 
-func (window *MainWindow) ShowNowPlayingImage(nowPlaying apiclient.NowPlaying) {
+func (window *MainWindow) showNowPlayingImage(nowPlaying apiclient.NowPlaying) {
 	if nowPlaying.ArtworkUri == window.CurrentArtworkUri {
 		// Ensure the artwork is visible; otherwise, there is nothing to do
 		if nowPlaying.Artwork != nil {
@@ -601,7 +608,7 @@ func (window *MainWindow) showNowPlayingImageInner(nowPlaying apiclient.NowPlayi
 	return true
 }
 
-func (window *MainWindow) ShowNowPlayingLocalRadio(nowPlaying apiclient.NowPlaying) {
+func (window *MainWindow) showNowPlayingLocalRadio(nowPlaying apiclient.NowPlaying) {
 	var state string
 	if nowPlaying.StreamName == "" {
 		state = "local"
@@ -613,7 +620,7 @@ func (window *MainWindow) ShowNowPlayingLocalRadio(nowPlaying apiclient.NowPlayi
 	}
 }
 
-func (window *MainWindow) ShowNowPlayingPlayPauseIcon(nowPlaying apiclient.NowPlaying) {
+func (window *MainWindow) showNowPlayingPlayPauseIcon(nowPlaying apiclient.NowPlaying) {
 	var sensitive bool
 	var icon *gtk.Image
 	var action func()
@@ -648,7 +655,7 @@ func (window *MainWindow) ShowNowPlayingPlayPauseIcon(nowPlaying apiclient.NowPl
 	window.PlayPauseAction = action
 }
 
-func (window *MainWindow) ShowNowPlayingPrevNext(nowPlaying apiclient.NowPlaying) {
+func (window *MainWindow) showNowPlayingPrevNext(nowPlaying apiclient.NowPlaying) {
 	window.PrevButton.SetSensitive(nowPlaying.TrackNumber > 1)
 	window.NextButton.SetSensitive(nowPlaying.TrackNumber > 0 &&
 		nowPlaying.AlbumTracks > 0 &&

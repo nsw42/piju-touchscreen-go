@@ -3,7 +3,6 @@ package apiclient
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -56,7 +55,7 @@ func getStatusFromReply(reply map[string]any) Status {
 		return Paused
 	default:
 		// Error in reply
-		fmt.Println("Unrecognised player status: ", statStr)
+		log.Println("Unrecognised player status: ", statStr)
 		return Stopped
 	}
 }
@@ -99,22 +98,25 @@ func (client *Client) getArtworkFromReply(reply map[string]any) (string, []byte)
 	return artworkUri, client.CachedArtwork
 }
 
-func (client *Client) ConnectWS(showNowPlaying func(NowPlaying)) bool {
+func (client *Client) ConnectWS(showNowPlaying func(NowPlaying)) {
 	// Returns whether or not connection was successful
 
+	if client.IsConnected {
+		log.Println("Warning - attempted to reconnect when already connected")
+		return
+	}
+	client.IsConnected = false
 	ws, _ := url.Parse(client.Host)
 	ws.Scheme = "ws"
 	ws.Path = "ws"
 	conn, _, err := websocket.DefaultDialer.Dial(ws.String(), nil)
 	if err != nil {
 		log.Println("Failed to connect - retry in 5s")
-		return false
+		return
 	}
 	client.IsConnected = true
 
 	go client.handleWsMessages(conn, showNowPlaying)
-
-	return true
 }
 
 func (client *Client) handleWsMessages(conn *websocket.Conn, showNowPlaying func(NowPlaying)) {
@@ -138,13 +140,13 @@ func (client *Client) handleWsMessages(conn *websocket.Conn, showNowPlaying func
 func (client *Client) GetCurrentStatus() NowPlaying {
 	resp, err := httpClient.Get(client.Host)
 	if err != nil {
-		fmt.Println("Error getting server status: ", err)
+		log.Println("Error getting server status: ", err)
 		return NowPlaying{Status: Error}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Error getting server status: ", resp.StatusCode)
+		log.Println("Error getting server status: ", resp.StatusCode)
 		return NowPlaying{Status: Error}
 	}
 
@@ -155,7 +157,7 @@ func (client *Client) statusFromReader(reader io.Reader) NowPlaying {
 	stat := NowPlaying{}
 	var reply map[string]any
 	if err := json.NewDecoder(reader).Decode(&reply); err != nil {
-		fmt.Println("Error decoding JSON: ", err)
+		log.Println("Error decoding JSON: ", err)
 		return stat
 	}
 
@@ -207,7 +209,7 @@ func (client *Client) SendResumeType(playerType string) {
 	body := bytes.NewReader(buf)
 	resp, err := httpClient.Post(client.Host+"player/resume", "application/json", body)
 	if err != nil {
-		fmt.Println("Failed to send command to server: ", err)
+		log.Println("Failed to send command to server: ", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -224,7 +226,7 @@ func (client *Client) SendPrevious() {
 func (client *Client) SendSimpleCommand(uriSuffix string, operationDesc string) {
 	resp, err := httpClient.Post(client.Host+uriSuffix, "application/json", nil)
 	if err != nil {
-		fmt.Println("Failed to send "+operationDesc+" command to server: ", err)
+		log.Println("Failed to send "+operationDesc+" command to server: ", err)
 		return
 	}
 	defer resp.Body.Close()

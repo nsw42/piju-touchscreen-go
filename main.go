@@ -113,10 +113,6 @@ func main() {
 	}
 }
 
-func playerUpdate(nowPlaying apiclient.NowPlaying) {
-	mainWindow.ShowNowPlaying(nowPlaying)
-}
-
 func activate(app *gtk.Application) {
 	mainWindow = mainwindow.NewMainWindow(app,
 		apiClient,
@@ -128,8 +124,8 @@ func activate(app *gtk.Application) {
 
 	glib.TimeoutAdd(5000, func() bool {
 		if !apiClient.IsConnected {
-			playerUpdate(apiclient.NowPlaying{Status: apiclient.Error})
-			apiClient.IsConnected = apiClient.ConnectWS(mainWindow.ShowNowPlaying)
+			mainWindow.ShowNowPlaying(apiclient.NowPlaying{Status: apiclient.Error})
+			apiClient.ConnectWS(mainWindow.QueueShowNowPlaying)
 		}
 		return glib.SOURCE_CONTINUE // =please keep calling me
 	})
